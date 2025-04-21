@@ -2,6 +2,7 @@ import json
 import re
 import os
 import sys
+import time  # 時間計測用に追加
 import operator
 import datetime  # 日付時刻の処理に必要
 import base64  # base64エンコードされた画像の処理に必要
@@ -31,6 +32,27 @@ class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
 
 
+# スクリーンショットを処理する関数
+def process_screenshot(message):
+    """
+    ツールのレスポンスからスクリーンショットを抽出して保存する
+    """
+    # ツールメッセージを処理
+    if isinstance(message, ToolMessage):
+        try:
+            # ツールメッセージから画像データを抽出
+            content = message.artifact
+            if content is not None:
+                base64_data = content[0].data
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                screenshot_path = os.path.join(SCREENSHOTS_DIR, f"screenshot_{timestamp}.png")
+                
+                with open(screenshot_path, "wb") as img_file:
+                    img_file.write(base64.b64decode(base64_data))
+                print(f"ツールからスクリーンショットを保存しました: {screenshot_path}")
+        except Exception as e:
+            print(f"ツールレスポンスからのスクリーンショット保存に失敗しました: {e}")
+
 def create_graph(state: GraphState, tools, model_chain):
     def should_continue(state):
         messages = state["messages"]
@@ -42,7 +64,17 @@ def create_graph(state: GraphState, tools, model_chain):
 
     def call_model(state):
         messages = state["messages"]
+        # 直前はtoolsのメッセージであるため、最後のメッセージを取得し、画像を保存する。
+        last_message = messages[-1]
+        process_screenshot(last_message)
+
+        # model_chain.invokeの実行時間を計測
+        start_time = time.time()
         response = model_chain.invoke(messages)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"model_chain.invokeの実行時間: {execution_time:.2f}秒")
+
         return {"messages": [response]}
 
 
@@ -95,30 +127,6 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
     else:
         raise ValueError(f"未対応のプロバイダー: {provider}")
 
-    # スクリーンショットを処理する関数
-    def process_screenshot(response_messages):
-        """
-        ツールのレスポンスからスクリーンショットを抽出して保存する
-        """
-        count = 0
-        for message in response_messages:                
-            # ツールメッセージを処理
-            if isinstance(message, ToolMessage):
-                try:
-                    # ツールメッセージから画像データを抽出
-                    content = message.artifact
-                    
-                    if content is not None:
-                        count += 1
-                        base64_data = content[0].data
-                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                        screenshot_path = os.path.join(SCREENSHOTS_DIR, f"screenshot_{timestamp}_{count}.png")
-                        
-                        with open(screenshot_path, "wb") as img_file:
-                            img_file.write(base64.b64decode(base64_data))
-                        print(f"ツールからスクリーンショットを保存しました: {screenshot_path}")
-                except Exception as e:
-                    print(f"ツールレスポンスからのスクリーンショット保存に失敗しました: {e}")
 
     # messageを作成する
     message = [
@@ -130,8 +138,6 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 まず、ユーザの質問からツールをどういう意図で何回利用しないといけないのかを判断し、必要なら複数回toolを利用して情報収集をしたのち、すべての情報が取得できたら、その情報を元に返答してください。
 
 ブラウザ操作後は１回の操作後に必ずbrowser_take_screenshot toolを使用してスクリーンショットを取得してください。
-
-なお、サイトのアクセスでエラーが出た場合は、もう一度再施行してください。ネットワーク関連のエラーの場合があります。
     """),
         MessagesPlaceholder("messages"),
     ]
@@ -171,8 +177,8 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
         # スクリーンショットを処理
         process_screenshot(response["messages"])
 
-        #デバック用
-        print("response: ", response)
+        # デバック用
+        # print("response: ", response)
 
         # 最終的な回答
         print("=================================")
