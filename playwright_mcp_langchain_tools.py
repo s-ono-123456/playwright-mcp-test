@@ -3,7 +3,6 @@ import re
 import os
 import sys
 import operator
-from dotenv import load_dotenv, find_dotenv
 from typing_extensions import TypedDict
 from typing import Any, Callable, Dict, Iterable, List, Optional, TypedDict, Annotated
 
@@ -17,7 +16,6 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-_ = load_dotenv(find_dotenv())
 google_api_key = os.getenv("GOOGLE_APIKEY")
 
 class GraphState(TypedDict):
@@ -25,7 +23,7 @@ class GraphState(TypedDict):
 
 
 def create_graph(state: GraphState, tools, model_chain):
-    def should_continue(state: state):
+    def should_continue(state):
         messages = state["messages"]
         last_message = messages[-1]
         if last_message.tool_calls:
@@ -33,7 +31,7 @@ def create_graph(state: GraphState, tools, model_chain):
         return END
 
 
-    def call_model(state: state):
+    def call_model(state):
         messages = state["messages"]
         response = model_chain.invoke(messages)
         return {"messages": [response]}
@@ -70,7 +68,7 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
     message = [
         SystemMessage(content= """
 あなたは役にたつAIアシスタントです。日本語で回答し、考えた過程を結論より前に出力してください。
-あなたは、「PlayWrite」というブラウザを操作するtoolを利用することができます。適切に利用してユーザからの質問に回答してください。
+あなたは、「PlayWright」というブラウザを操作するtoolを利用することができます。適切に利用してユーザからの質問に回答してください。
 ツールを利用する場合は、必ずツールから得られた情報のみを利用して回答してください。
 
 まず、ユーザの質問からツールをどういう意図で何回利用しないといけないのかを判断し、必要なら複数回toolを利用して情報収集をしたのち、すべての情報が取得できたら、その情報を元に返答してください。
