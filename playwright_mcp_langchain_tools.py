@@ -78,7 +78,7 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
         model = ChatGoogleGenerativeAI(
             model=google_model_config.get("model", "gemini-2.0-flash"),
             google_api_key=google_api_key,
-            temperature=google_model_config.get("temperature", 0.001),
+            temperature=google_model_config.get("temperature", 0.1),
         )
         print("Google Geminiモデルを使用します")
     elif provider == "openai":
@@ -87,9 +87,9 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
         
         openai_model_config = model_config.get("models", {}).get("openai", {})
         model = ChatOpenAI(
-            model=openai_model_config.get("model", "gpt-4-turbo"),
+            model=openai_model_config.get("model", "gpt-4.1-mini"),
             openai_api_key=openai_api_key,
-            temperature=openai_model_config.get("temperature", 0.001),
+            temperature=openai_model_config.get("temperature", 0.1),
         )
         print("OpenAIモデルを使用します")
     else:
@@ -129,7 +129,7 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 
 まず、ユーザの質問からツールをどういう意図で何回利用しないといけないのかを判断し、必要なら複数回toolを利用して情報収集をしたのち、すべての情報が取得できたら、その情報を元に返答してください。
 
-ブラウザ操作後は常にbrowser_take_screenshot toolを使用してスクリーンショットを取得してください。
+ブラウザ操作後は１回の操作後に必ずbrowser_take_screenshot toolを使用してスクリーンショットを取得してください。
 
 なお、サイトのアクセスでエラーが出た場合は、もう一度再施行してください。ネットワーク関連のエラーの場合があります。
     """),
