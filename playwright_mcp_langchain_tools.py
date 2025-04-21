@@ -13,7 +13,7 @@ from mcp.types import ImageContent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI  # OpenAIのインポートを追加
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, ToolMessage, AIMessage
 
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import StateGraph, START, END
@@ -30,6 +30,8 @@ os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
 class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
+    # system_message: Optional[SystemMessage]
+    human_message: Optional[HumanMessage]
 
 
 # スクリーンショットを処理する関数
@@ -68,7 +70,10 @@ def create_graph(state: GraphState, tools, model_chain):
         # 直前はtoolsのメッセージであるため、最後のメッセージを取得し、画像を保存する。
         last_message = messages[-1]
         bool = process_screenshot(last_message)
-
+        model_input = [state["human_message"]]
+        # 対応するツールメッセージがないとエラーになる。
+        # HumanMessage→（飛ばし）→AIMessage→ToolMessageとする。
+        # それか、今までのメッセージをもとに要約を行うノードをはさんだほうが速そう。
 
         # model_chain.invokeの実行時間を計測
         start_time = time.time()
@@ -152,32 +157,34 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 
         model_with_tools = prompt | model.bind_tools(tools)
 
-        graph = create_graph(
-            GraphState,
-            tools,
-            model_with_tools
-        )
-
-
         query = input("入力してください:exitで終了: ")
 
         if query.lower() in ["exit", "quit"]:
             print("終了します。")
-            exit()
+            return
 
-        input_query = [HumanMessage(
+        input_query = HumanMessage(
                 [
                     {
                         "type": "text",
                         "text": f"{query}"
                     },
                 ]
-            )]
+            )
+        
+        initial_state = {
+            "messages": [input_query],
+            # "system_message": query,
+            "human_message": input_query
+        }
 
-        response = await graph.ainvoke({"messages":input_query}, graph_config)
+        graph = create_graph(
+            GraphState,
+            tools,
+            model_with_tools
+        )
 
-        # スクリーンショットを処理
-        process_screenshot(response["messages"])
+        response = await graph.ainvoke(initial_state, graph_config)
 
         # デバック用
         # print("response: ", response)
@@ -189,5 +196,27 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    
+    # イベントループを明示的に取得
+    # Windows環境での非同期処理のためにProactorEventLoopを使用
+    loop = asyncio.ProactorEventLoop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("プログラムが中断されました")
+    finally:
+        # 保留中のタスクをキャンセル
+        pending_tasks = asyncio.all_tasks(loop)
+        for task in pending_tasks:
+            task.cancel()
+            
+        # タスクがキャンセルされるのを待つ
+        if pending_tasks:
+            loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+            
+        # イベントループを閉じる
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
 
