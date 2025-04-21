@@ -50,8 +50,10 @@ def process_screenshot(message):
                 with open(screenshot_path, "wb") as img_file:
                     img_file.write(base64.b64decode(base64_data))
                 print(f"ツールからスクリーンショットを保存しました: {screenshot_path}")
+                return True
         except Exception as e:
             print(f"ツールレスポンスからのスクリーンショット保存に失敗しました: {e}")
+    return False
 
 def create_graph(state: GraphState, tools, model_chain):
     def should_continue(state):
@@ -61,12 +63,12 @@ def create_graph(state: GraphState, tools, model_chain):
             return "tools"
         return END
 
-
     def call_model(state):
         messages = state["messages"]
         # 直前はtoolsのメッセージであるため、最後のメッセージを取得し、画像を保存する。
         last_message = messages[-1]
-        process_screenshot(last_message)
+        bool = process_screenshot(last_message)
+
 
         # model_chain.invokeの実行時間を計測
         start_time = time.time()
