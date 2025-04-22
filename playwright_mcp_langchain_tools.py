@@ -57,6 +57,10 @@ def process_screenshot(message):
             print(f"ツールレスポンスからのスクリーンショット保存に失敗しました: {e}")
     return False
 
+def process_message(messages):
+    return messages
+
+
 def create_graph(state: GraphState, tools, model_chain):
     def should_continue(state):
         messages = state["messages"]
@@ -76,8 +80,9 @@ def create_graph(state: GraphState, tools, model_chain):
         # それか、今までのメッセージをもとに要約を行うノードをはさんだほうが速そう。
 
         # model_chain.invokeの実行時間を計測
+        messages_limited = process_message(messages)
         start_time = time.time()
-        response = model_chain.invoke(messages)
+        response = model_chain.invoke(messages_limited)
         end_time = time.time()
         execution_time = end_time - start_time
         print(f"model_chain.invokeの実行時間: {execution_time:.2f}秒")
