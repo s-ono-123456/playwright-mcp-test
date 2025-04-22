@@ -58,6 +58,7 @@ def process_screenshot(message):
     return False
 
 def process_message(messages):
+    
     return messages
 
 
@@ -74,10 +75,11 @@ def create_graph(state: GraphState, tools, model_chain):
         # 直前はtoolsのメッセージであるため、最後のメッセージを取得し、画像を保存する。
         last_message = messages[-1]
         bool = process_screenshot(last_message)
-        model_input = [state["human_message"]]
-        # 対応するツールメッセージがないとエラーになる。
-        # HumanMessage→（飛ばし）→AIMessage→ToolMessageとする。
-        # それか、今までのメッセージをもとに要約を行うノードをはさんだほうが速そう。
+        if bool:
+            # スクリーンショットを保存した場合、メッセージを追加する
+            last_message.artifact = []
+            messages[-1] = last_message
+            state["messages"] = messages
 
         # model_chain.invokeの実行時間を計測
         messages_limited = process_message(messages)
@@ -85,7 +87,7 @@ def create_graph(state: GraphState, tools, model_chain):
         response = model_chain.invoke(messages_limited)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"model_chain.invokeの実行時間: {execution_time:.2f}秒")
+        # print(f"model_chain.invokeの実行時間: {execution_time:.2f}秒")
 
         return {"messages": [response]}
 
@@ -148,9 +150,11 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 ツールを利用する場合は、必ずツールから得られた情報のみを利用して回答してください。
 
 まず、ユーザの質問からツールをどういう意図で何回利用しないといけないのかを判断し、必要なら複数回toolを利用して情報収集をしたのち、すべての情報が取得できたら、その情報を元に返答してください。
-
+また、会話履歴は一部が省略されている場合があります。
 ブラウザ操作後は１回の操作後に必ずbrowser_take_screenshot toolを使用してスクリーンショットを取得してください。
-    """),
+
+また、ブラウザの操作4回ごとに今までの操作をまとめ、回答メッセージにSUMMARYの文字を入れてください。
+"""),
         MessagesPlaceholder("messages"),
     ]
 
