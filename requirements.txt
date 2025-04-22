@@ -8,3 +8,5 @@ pillow
 langchain-mcp-adapters
 langgraph
 langchain_tavily
+streamlit
+nest-asyncio

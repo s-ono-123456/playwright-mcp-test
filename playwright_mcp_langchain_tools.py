@@ -6,6 +6,7 @@ import time  # 時間計測用に追加
 import operator
 import datetime  # 日付時刻の処理に必要
 import base64  # base64エンコードされた画像の処理に必要
+import asyncio
 from typing_extensions import TypedDict
 from typing import Any, Callable, Dict, Iterable, List, Optional, TypedDict, Annotated
 from mcp.types import ImageContent
@@ -106,7 +107,7 @@ def create_graph(state: GraphState, tools, model_chain):
     
     return app
 
-async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
+async def main(graph_config = {"configurable": {"thread_id": "12345"}}, query = None):
     # モデル設定の読み込み
     with open("mcp_config.json", "r") as f:
         mcp_config = json.load(f)
@@ -165,8 +166,9 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
         tools = mcp_client.get_tools()
 
         model_with_tools = prompt | model.bind_tools(tools)
-
-        query = input("入力してください:exitで終了: ")
+        if query is None:
+            # ユーザからの入力を取得
+            query = input("入力してください:exitで終了: ")
 
         if query.lower() in ["exit", "quit"]:
             print("終了します。")
@@ -204,7 +206,6 @@ async def main(graph_config = {"configurable": {"thread_id": "12345"}}):
 
 
 if __name__ == "__main__":
-    import asyncio
     
     # イベントループを明示的に取得
     # Windows環境での非同期処理のためにProactorEventLoopを使用
